@@ -1,0 +1,14 @@
+.idea
+*.i
+*.ii
+*.gpu
+*.ptx
+*.cubin
+*.fatbin
+*.ipynb
+model/__pycache__
+*.swp
+images
+berts/
+berts/clinical_bert/
+saved_models
