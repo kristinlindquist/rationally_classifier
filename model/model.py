@@ -2,7 +2,6 @@ from Autoencoder import *
 from datetime import datetime
 import gensim
 from gensim import corpora
-from gensim.models import HdpModel
 from gensim.models.ldamodel import LdaModel
 from preprocess import *
 import numpy as np

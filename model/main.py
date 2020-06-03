@@ -42,7 +42,7 @@ if __name__ == '__main__':
     data = pd.DataFrame(get_data())[0];
     sentences, token_lists = preprocess(data, samp_size=int(args.samp_size))
 
-    tm = Topic_Model(k = int(args.ntopic), method = str(args.method))
+    tm = Topic_Model(k = int(args.ntopic))
     tm.fit(sentences, token_lists)
 
     with open("./saved_models/{}.file".format(tm.id), "wb") as f:
