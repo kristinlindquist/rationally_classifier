@@ -44,14 +44,15 @@ class Topic_Model:
         self.corpus = None
         self.cluster_model = None
         self.lda_model = None
+        self.method = 'LDA_BERT'
         self.vec = {}
         self.gamma = 15
         self.autoencoder = None
-        self.id = method + '_' + datetime.now().strftime("%Y_%m_%d_%H_%M")
+        self.id = datetime.now().strftime("%Y_%m_%d_%H_%M")
 
     def vectorize(self, sentences, token_lists, method=None):
         if method is None:
-            method = 'LDA_BERT'
+            method = self.method
 
         self.dictionary = corpora.Dictionary(token_lists)
         self.corpus = [self.dictionary.doc2bow(text) for text in token_lists]
@@ -72,9 +73,8 @@ class Topic_Model:
         elif method == 'BERT':
             print('Vectorizing for BERT ...')
 
-            # word_embedding_model = models.Transformer('allenai/scibert_scivocab_uncased')
             # word_embedding_model = models.Transformer('bert-base-uncased')
-            word_embedding_model = Transformer.from_pretrained("emilyalsentzer/Bio_ClinicalBERT")
+            word_embedding_model = models.Transformer('emilyalsentzer/Bio_ClinicalBERT')
 
             # Apply mean pooling to get one fixed sized sentence vector
             pooling_model = models.Pooling(
@@ -89,7 +89,7 @@ class Topic_Model:
             print('Done BERT vectorizing.')
             return vec
 
-    def meta_vectorize(self, sentences, token_lists, method=None):
+    def meta_vectorize(self, sentences, token_lists):
         vec_lda = self.vectorize(
             sentences,
             token_lists,
@@ -114,7 +114,7 @@ class Topic_Model:
 
         print('Clustering ...')
         self.cluster_model = m_clustering(self.k)
-        self.vec[self.method] = self.meta_vectorize(sentences, token_lists, self.method)
+        self.vec[self.method] = self.meta_vectorize(sentences, token_lists)
         self.cluster_model.fit(self.vec[self.method])
         print('Done clustering.')
 
