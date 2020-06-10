@@ -62,9 +62,9 @@ def visualize(model):
         os.makedirs(dr)
     plt.savefig(dr + '/2D_vis')
 
-def get_wordcloud(model, token_lists, topic):
+def get_wordcloud(model, token_lists, topic, labels):
     print('Generating wordcloud for topic {} ...'.format(topic))
-    labels = model.cluster_model.labels_
+    # labels = model.cluster_model.labels_
     tokens = [' '.join(_) for _ in np.array(token_lists)[labels == topic]]
 
     vectorizer = CountVectorizer(ngram_range=(1, 3))

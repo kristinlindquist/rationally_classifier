@@ -1,29 +1,15 @@
 from Autoencoder import *
+from nnclassifier import *
 from datetime import datetime
 import gensim
 from gensim import corpora
 from gensim.models.ldamodel import LdaModel
 from preprocess import *
-import numpy as np
 from sentence_transformers import models, SentenceTransformer
 from sklearn.cluster import KMeans
+from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split
 from transformers import *
-
-def preprocess(docs, samp_size=100):
-    print('Preprocessing data ...')
-    n_docs = len(docs)
-    sentences = []
-    token_lists = []
-    samp = np.random.choice(n_docs, samp_size)
-    for i, idx in enumerate(samp):
-        sentence = preprocess_sentence(docs[idx])
-        sentences.append(sentence)
-        token_lists.append(preprocess_word(sentence))
-        print('{} %'.format(str(np.round((i + 1) / len(samp) * 100, 2))), end='\r')
-
-    print('Done preprocessing.')
-    return sentences, token_lists
-
 
 def get_vec_lda(model, corpus, k, topics=None):
     n_doc = len(corpus)
@@ -38,12 +24,13 @@ def get_vec_lda(model, corpus, k, topics=None):
 
 
 class Topic_Model:
-    def __init__(self, k=10):
+    def __init__(self, k):
         self.k = k
         self.dictionary = None
         self.corpus = None
         self.cluster_model = None
         self.lda_model = None
+        self.model = None
         self.method = 'LDA_BERT'
         self.vec = {}
         self.gamma = 15
@@ -72,11 +59,8 @@ class Topic_Model:
 
         elif method == 'BERT':
             print('Vectorizing for BERT ...')
-
-            # word_embedding_model = models.Transformer('bert-base-uncased')
             word_embedding_model = models.Transformer('emilyalsentzer/Bio_ClinicalBERT')
 
-            # Apply mean pooling to get one fixed sized sentence vector
             pooling_model = models.Pooling(
                 word_embedding_model.get_word_embedding_dimension(),
                 pooling_mode_mean_tokens=True,
@@ -89,16 +73,11 @@ class Topic_Model:
             print('Done BERT vectorizing.')
             return vec
 
-    def meta_vectorize(self, sentences, token_lists):
+    def meta_vectorize(self, sentences, token_lists, vec_bert):
         vec_lda = self.vectorize(
             sentences,
             token_lists,
             method='LDA'
-        )
-        vec_bert = self.vectorize(
-            sentences,
-            token_lists,
-            method='BERT'
         )
         vec_ldabert = np.c_[vec_lda * self.gamma, vec_bert]
         self.vec['LDA_BERT_FULL'] = vec_ldabert
@@ -109,21 +88,29 @@ class Topic_Model:
         
         return self.autoencoder.encoder.predict(vec_ldabert)
 
-    def fit(self, sentences, token_lists):
+    def fit(self, sentences, token_lists, topics):
         m_clustering = KMeans
 
+        vec_bert = self.vectorize(sentences, token_lists, method='BERT')
+
         print('Clustering ...')
-        self.cluster_model = m_clustering(self.k)
-        self.vec[self.method] = self.meta_vectorize(sentences, token_lists)
+        self.cluster_model = m_clustering(topics.size)
+        self.vec[self.method] = self.meta_vectorize(sentences, token_lists, vec_bert)
         self.cluster_model.fit(self.vec[self.method])
         print('Done clustering.')
 
-    def predict(self, sentences, token_lists, out_of_sample=None):
-        if out_of_sample is not None:
-            corpus = [self.dictionary.doc2bow(text) for text in token_lists]
-            vec = self.vectorize(sentences, token_lists)
-        else:
-            corpus = self.corpus
-            vec = self.vec.get(self.method, None)
+        print('Fitting ...')
+        self.model = Nnclassifier(
+            unsup_model = self.cluster_model.predict(self.vec[self.method])
+        ).fit(vec_bert, topics)
 
-        return self.cluster_model.predict(vec)
+        print('Done fitting.')
+
+    def predict(self, sentence, token_lists):
+        return self.model.predict(
+            self.vectorize([sentence], token_lists, method='BERT')
+        )
+
+    def score(self, sentences, token_lists, topics):
+        predicted_labels = self.model.transduction_
+        print(classification_report(topics, predicted_labels))
