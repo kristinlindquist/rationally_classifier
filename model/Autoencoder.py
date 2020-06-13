@@ -12,24 +12,25 @@ class Autoencoder:
         self.autoencoder = None
         self.encoder = None
         self.decoder = None
-        self.his = None
+        self.history = None
 
     def _compile(self, input_dim):
         input_vec = Input(shape=(input_dim,))
         encoded = Dense(self.latent_dim, activation=self.activation)(input_vec)
         decoded = Dense(input_dim, activation=self.activation)(encoded)
-        self.autoencoder = Model(input_vec, decoded)
         self.encoder = Model(input_vec, encoded)
-        encoded_input = Input(shape=(self.latent_dim,))
-        decoder_layer = self.autoencoder.layers[-1]
-        self.decoder = Model(encoded_input, self.autoencoder.layers[-1](encoded_input))
+
+        self.autoencoder = Model(input_vec, decoded)
         self.autoencoder.compile(optimizer='adam', loss=keras.losses.mean_squared_error)
+
+        encoded_input = Input(shape=(self.latent_dim,))
+        self.decoder = Model(encoded_input, self.autoencoder.layers[-1](encoded_input))
 
     def fit(self, X):
         if not self.autoencoder:
             self._compile(X.shape[1])
         X_train, X_test = train_test_split(X)
-        self.his = self.autoencoder.fit(
+        self.history = self.autoencoder.fit(
             X_train,
             X_train,
             epochs=200,

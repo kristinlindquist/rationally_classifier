@@ -1,57 +1,39 @@
 import keras
-from keras import backend as K
-from keras.layers import Activation, Dense, Input
-from keras.models import Model, Sequential
-from sklearn.model_selection import train_test_split
+from keras.layers import Dense, Input
+from keras.models import Model
 
 class Nnclassifier:
-    def __init__(self, unsup_model, latent_dim=32, activation='relu', epochs=100, batch_size=128):
+    def __init__(self, inputs=None, latent_dim=32, activation='relu', epochs=200, batch_size=128):
         self.activation = activation
         self.epochs = epochs
         self.batch_size = batch_size
         self.latent_dim = latent_dim
         self.model = None
-        self.cc_loss = keras.losses.CategoricalCrossentropy(from_logits=True)
-        self.unsup_model = unsup_model
-        self.step = 0
+        self.inputs = inputs
+        self.cc_loss = keras.losses.CategoricalCrossentropy(label_smoothing=0.2, from_logits=True)
 
     def _compile(self, input_dim, num_classes):
-        inputs = Input(shape=(input_dim,))
-        # self.model.add(Activation(self.activation, name="activation"))
-        predictions = Dense(num_classes, name="hidden")(inputs)
-        predictions = Activation('softmax', name="softmax")(predictions)
+        inputs = Input(shape=(input_dim,)) if self.inputs is None else self.inputs
+        predictions = Dense(self.latent_dim, activation=self.activation)(inputs)
+        predictions = Dense(num_classes, activation="softmax")(predictions)
         self.model = Model(inputs = inputs, outputs = predictions)
-
-        self.model.summary()
 
         self.model.compile(
             optimizer=keras.optimizers.RMSprop(0.01),
-            loss=self.custom_loss(),
+            loss=self.cc_loss,
             metrics=['accuracy']
         )
 
-    def custom_loss(self):
-        def loss(y_true, y_pred):
-            start_idx = self.step * self.batch_size
-            end_idx = start_idx + self.batch_size
-            unsup_results = self.unsup_model[start_idx : end_idx,]
-            self.step += 1
-            self.step %= self.batch_size
-            return (
-                K.mean(K.square(y_pred - y_true), axis=-1)
-                * self.cc_loss(y_true, y_pred)
-                * unsup_results
-            )
-        return loss
-
-    def fit(self, data, sup_labels):
+    def fit(self, data, labels):
         if not self.model:
-            self._compile(data.shape[1], max(sup_labels) + 1)
+            self._compile(data.shape[1], max(labels) + 1)
 
         self.model.fit(
             data,
-            keras.utils.to_categorical(sup_labels, max(sup_labels) + 1),
+            keras.utils.to_categorical(labels, max(labels) + 1),
             batch_size=self.batch_size,
             epochs=self.epochs
         )
 
+    def predict(self, vec):
+        return self.model.predict(vec, batch_size=vec.size)

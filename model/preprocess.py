@@ -92,21 +92,6 @@ def preprocess_word(s):
     w_list = handle_stop_words(w_list)
     return w_list;
 
-# def preprocess(docs, samp_size=100):
-#     print('Preprocessing data ...')
-#     n_docs = len(docs)
-#     sentences = []
-#     token_lists = []
-#     samp = np.random.choice(n_docs, samp_size)
-#     for i, idx in enumerate(samp):
-#         sentence = preprocess_sentence(docs[idx])
-#         sentences.append(sentence)
-#         token_lists.append(preprocess_word(sentence))
-#         print('{} %'.format(str(np.round((i + 1) / len(samp) * 100, 2))), end='\r')
-
-#     print('Done preprocessing.')
-#     return sentences, token_lists
-
 def preprocess(df):
     print('Preprocessing sentences ...')
     sentences = df.apply(lambda row: preprocess_sentence(row[0]), axis=1)

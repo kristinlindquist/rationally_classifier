@@ -19,8 +19,12 @@ def get_data(limit = 1000):
     )
 
     cursor = connection.cursor()
-    cursor.execute("SELECT o.name as name, m.id as id from measurement m, outcome o" +
-      " where m.id=o.measure_id limit " + str(limit))
+    cursor.execute("SELECT o.name as name, m.id as id" +
+      " from measurement m, outcome o, study_design sd, sd_on_use sdou" +
+      " where m.id=o.measure_id" +
+      " AND COALESCE(o.po_parent_id, o.so_parent_id)=sd.id" +
+      " AND sdou.study_design_id=sd.id AND sdou.use_id=148" +
+      " limit " + str(limit))
     records = cursor.fetchall()
 
   except (Exception, psycopg2.Error) as error :
@@ -43,27 +47,12 @@ if __name__ == '__main__':
   sentences, tokens, topics = preprocess(df.dropna())
 
   if args.filename is not None:
-    tm = pickle.load(open(args.filename, 'rb'))
-    tm.score(sentences, tokens, topics)
+    es = pickle.load(open(args.filename, 'rb'))
+    es.score(sentences, tokens, topics)
 
   else:
-    k = pd.unique(topics).size
-    tm = Topic_Model(k = k)
-    tm.fit(sentences, tokens, topics)
+    es = Ensemble_Model()
+    es.fit(sentences, tokens, topics)
 
-    with open("./saved_models/{}.file".format(tm.id), "wb") as f:
-      pickle.dump(tm, f, pickle.HIGHEST_PROTOCOL)
-  # df = pd.DataFrame(get_data())[0];
-  # sentences, token_lists = preprocess(df, samp_size=int(args.samp_size))
-
-
-  # print('Coherence:', get_coherence(tm, token_lists, 'c_v'))
-  # print('Silhouette Score:', get_silhouette(tm))
-
-  # visualize(tm)
-  # for i in range(tm.k):
-  #   get_wordcloud(tm, token_lists, i)
-  # df.sample(n = 10).apply(
-  #   lambda row: print("{}: {}, previously {}".format(row[0], tm.predict(row[0], token_lists), row[1])),
-  #   axis=1
-  # )
+    with open("./saved_models/{}.file".format(es.id), "wb") as f:
+      pickle.dump(es, f, pickle.HIGHEST_PROTOCOL)

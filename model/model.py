@@ -1,60 +1,35 @@
-from Autoencoder import *
 from nnclassifier import *
+from unsup_ensemble import *
 from datetime import datetime
-import gensim
-from gensim import corpora
-from gensim.models.ldamodel import LdaModel
 from preprocess import *
 from sentence_transformers import models, SentenceTransformer
-from sklearn.cluster import KMeans
-from sklearn.metrics import classification_report
-from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from transformers import *
+from keras.layers import Average, Dense, Input
+from keras.models import Model
 
-def get_vec_lda(model, corpus, k, topics=None):
-    n_doc = len(corpus)
-    vec_lda = np.zeros((n_doc, k))
-    for i in range(n_doc):
-        topic_probs = model.get_document_topics(corpus[i]) if topics is None else model[corpus[i]]
-        for topic, prob in topic_probs:
-            if topics is None or topic in topics:
-                vec_lda[i, topic] = prob
-
-    return vec_lda
-
-
-class Topic_Model:
-    def __init__(self, k):
-        self.k = k
-        self.dictionary = None
-        self.corpus = None
-        self.cluster_model = None
-        self.lda_model = None
+class Ensemble_Model:
+    def __init__(self):
         self.model = None
-        self.method = 'LDA_BERT'
-        self.vec = {}
-        self.gamma = 15
-        self.autoencoder = None
+        self.method = None
         self.id = datetime.now().strftime("%Y_%m_%d_%H_%M")
 
     def vectorize(self, sentences, token_lists, method=None):
         if method is None:
             method = self.method
 
-        self.dictionary = corpora.Dictionary(token_lists)
-        self.corpus = [self.dictionary.doc2bow(text) for text in token_lists]
+        if method == 'TFIDF':
+            print('TF-IDF ...')
+            tf_idf = TfidfVectorizer()
+            vec = tf_idf.fit(sentences)
+            print('TF-IDF done.')
+            return vec
 
-        if method == 'LDA':
-            print('LDA vectorizing...')
-            self.ldamodel = LdaModel(
-                self.corpus,
-                num_topics=self.k,
-                id2word=self.dictionary,
-                passes=20
-            )
-
-            vec = get_vec_lda(self.ldamodel, self.corpus, self.k)
-            print('Done LDA vectorizing.')
+        elif method == 'COUNT':
+            print('Count vectorizing ...')
+            cv = CountVectorizer()
+            vec = cv.fit_transform(sentences)
+            print('Count vectorizing done.')
             return vec
 
         elif method == 'BERT':
@@ -73,44 +48,47 @@ class Topic_Model:
             print('Done BERT vectorizing.')
             return vec
 
-    def meta_vectorize(self, sentences, token_lists, vec_bert):
-        vec_lda = self.vectorize(
-            sentences,
-            token_lists,
-            method='LDA'
+    def ensemble(models, inputs):
+        outputs = [model.outputs[0] for model in models]
+        y = Average()(outputs)
+
+        return Model(inputs = inputs, outputs = y, name='ensemble')
+
+    def _compile(self, vec1, vec2, topics):
+        sup_input = Input(shape=(vec1.shape[1],))
+        unsup_input_1 = Input(shape=(vec2.shape[1],))
+        unsup_input_2 = Input(shape=(vec1.shape[1],))
+
+        sup_nn = Nnclassifier(sup_input)
+        sup_nn.fit(vec1, topics)
+
+        unsup2x = unsup_ensemble(unsup_input_1, unsup_input_2)
+        unsup2x.fit(vec2, vec1, topics)
+
+        self.model = self.ensemble(
+            [sup_nn.model, unsup2x],
+            [sup_input, unsup_input_1, unsup_input_2]
         )
-        vec_ldabert = np.c_[vec_lda * self.gamma, vec_bert]
-        self.vec['LDA_BERT_FULL'] = vec_ldabert
-        self.autoencoder = Autoencoder()
-        print('Fitting Autoencoder ...')
-        self.autoencoder.fit(vec_ldabert)
-        print('Done fitting autoencoder')
-        
-        return self.autoencoder.encoder.predict(vec_ldabert)
+
+        self.model.compile(
+            optimizer='adam',
+            loss=keras.losses.KLDivergence(),
+            metrics=['accuracy']
+        )
+
+        self.model.summary()
 
     def fit(self, sentences, token_lists, topics):
-        m_clustering = KMeans
-
         vec_bert = self.vectorize(sentences, token_lists, method='BERT')
+        vec_tfidf = self.vectorize(sentences, token_lists, method='COUNT')
 
-        print('Clustering ...')
-        self.cluster_model = m_clustering(topics.size)
-        self.vec[self.method] = self.meta_vectorize(sentences, token_lists, vec_bert)
-        self.cluster_model.fit(self.vec[self.method])
-        print('Done clustering.')
+        if not self.model:
+            self._compile(vec_bert, vec_tfidf, topics)
 
-        print('Fitting ...')
-        self.model = Nnclassifier(
-            unsup_model = self.cluster_model.predict(self.vec[self.method])
-        ).fit(vec_bert, topics)
-
+        self.model.fit(x = [vec_bert, vec_tfidf, vec_bert], y = keras.utils.to_categorical(topics, max(topics) + 1))
         print('Done fitting.')
 
     def predict(self, sentence, token_lists):
         return self.model.predict(
             self.vectorize([sentence], token_lists, method='BERT')
         )
-
-    def score(self, sentences, token_lists, topics):
-        predicted_labels = self.model.transduction_
-        print(classification_report(topics, predicted_labels))
