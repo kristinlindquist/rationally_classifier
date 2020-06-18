@@ -1,6 +1,7 @@
 import keras
 from keras.layers import Dense, Input
 from keras.models import Model
+from sklearn.model_selection import train_test_split
 
 class Nnclassifier:
     def __init__(self, inputs=None, latent_dim=32, activation='relu', epochs=200, batch_size=128):
@@ -28,12 +29,24 @@ class Nnclassifier:
         if not self.model:
             self._compile(data.shape[1], max(labels) + 1)
 
+        cat_labels = keras.utils.to_categorical(labels, max(labels) + 1)
+
+        X_train, X_test, y_train, y_test = train_test_split(data, cat_labels)
+
         self.model.fit(
-            data,
-            keras.utils.to_categorical(labels, max(labels) + 1),
+            X_train,
+            y_train,
+            shuffle=True,
+            validation_data=(X_test, y_test),
             batch_size=self.batch_size,
             epochs=self.epochs
         )
 
     def predict(self, vec):
-        return self.model.predict(vec, batch_size=vec.size)
+        return self.model.predict(vec)
+
+    def save(self, filename):
+        self.model.save(filename)
+
+    def load(self, filename):
+        self.model = keras.models.load_model(filename)
