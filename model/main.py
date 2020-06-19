@@ -4,7 +4,6 @@ import pandas as pd
 import psycopg2
 from utils import *
 
-# load data from postgres
 def get_data(limit = 1000):
   try:
     connection = psycopg2.connect(
@@ -16,12 +15,14 @@ def get_data(limit = 1000):
     )
 
     cursor = connection.cursor()
-    cursor.execute("SELECT o.name as name, m.id as id, mce.name as mname" +
-      " from measurement m, outcome o, study_design sd, sd_on_use sdou, clinical_entity mce" +
+    cursor.execute("SELECT concat(o.name, '. ', o.description) as name, m.id as id" +
+      " from measurement m, outcome o, clinical_entity mce" +
       " where m.id=o.measure_id" +
       " AND m.id = mce.measurement_id" +
-      " AND COALESCE(o.po_parent_id, o.so_parent_id)=sd.id" +
-      " AND sdou.study_design_id=sd.id AND sdou.use_id=148" +
+      " AND o.disabled = false" +
+      " AND mce.is_disabled = false" +
+      " AND mce.is_provisional = false" +
+      " ORDER BY random()" +
       " limit " + str(limit))
     records = cursor.fetchall()
 
@@ -51,6 +52,6 @@ if __name__ == '__main__':
 
   else:
     df = pd.DataFrame(get_data(args.samp_size))
-    sentences, topics = preprocess(df.dropna())
-    es.fit(sentences, topics)
+    text, topics = preprocess(df.dropna())
+    es.fit(text, topics)
     es.save('./saved_models/{}'.format(es.id))

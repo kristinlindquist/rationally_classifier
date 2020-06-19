@@ -42,9 +42,9 @@ def preprocess_word(s):
   return detokenizer.detokenize(w_list);
 
 def preprocess(df):
-    print('Preprocessing sentences ...')
-    sentences = df.apply(lambda row: preprocess_sentence(row[0]), axis=1)
+    print('Preprocessing text ...')
+    text = df.apply(lambda row: preprocess_sentence(row[0]), axis=1)
     topics = df.apply(lambda row: row[1], axis=1)
 
     print('Done preprocessing.')
-    return sentences, topics
+    return text, topics
