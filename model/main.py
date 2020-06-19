@@ -1,9 +1,9 @@
+import argparse
+from model import *
 import pandas as pd
 import psycopg2
-from model import *
 from utils import *
-
-import argparse
+import warnings
 
 # load data from postgres
 def get_data(limit = 1000):
@@ -46,12 +46,13 @@ if __name__ == '__main__':
   es = Ensemble_Model()
 
   if args.filename is not None and args.sentence is not None:
+    warnings.filterwarnings("ignore")
     es.load(args.filename)
-    prediction = es.predict(preprocess_sentence(args.sentence), "")
+    prediction = es.predict(preprocess_sentence(args.sentence), "", "")
     print("Prediction: {}".format(prediction))
 
   else:
     df = pd.DataFrame(get_data(args.samp_size))
-    sentences, topics, m_names = preprocess(df.dropna())
-    es.fit(sentences, topics, m_names)
+    sentences, topics = preprocess(df.dropna())
+    es.fit(sentences, topics)
     es.save('./saved_models/{}'.format(es.id))
