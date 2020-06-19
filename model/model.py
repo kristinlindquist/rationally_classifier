@@ -73,7 +73,7 @@ class Ensemble_Model:
     self.model = NN_Classifier()
     self.model.load(filename)
 
-  def predict(self, sentence, m_name):
+  def predict(self, sentence):
     prediction = self.model.predict([
       self.vectorize([sentence], method='BERT')
     ])
