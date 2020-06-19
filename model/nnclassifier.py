@@ -6,7 +6,7 @@ from keras.models import Model
 from sklearn.model_selection import train_test_split
 
 class NN_Classifier:
-  def __init__(self, latent_dim=32, activation='relu', epochs=200, batch_size=128):
+  def __init__(self, latent_dim=32, activation='relu', epochs=300, batch_size=1000):
     self.activation = activation
     self.batch_size = batch_size
     self.cc_loss = CategoricalCrossentropy(label_smoothing=0.2, from_logits=True)
