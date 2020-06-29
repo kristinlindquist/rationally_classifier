@@ -1,9 +1,7 @@
 from nnclassifier import *
 from datetime import datetime
-from keras.layers import Dense, Input
-from keras.models import Model
+import os
 import numpy as np
-import pandas as pd
 from preprocess import *
 from sentence_transformers import models, SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -54,6 +52,7 @@ class Ensemble_Model:
       return vec
 
   def _compile(self):
+    # resolver = tf.distribute.cluster_resolver.TPUClusterResolver('grpc://127.0.0.1')
     self.model = NN_Classifier()
 
   def fit(self, text, topics):
